@@ -1,5 +1,5 @@
 {
-  "name": "Gestor de Quotas - AZP (Modo de Teste)",
-  "description": "Uma aplicação para automatizar o envio de emails de cobrança a sócios da AZP com quotas em atraso. Importe um ficheiro CSV, personalize o email com a ajuda da IA do Gemini e abra os emails no seu cliente de email para envio.",
+  "name": "Gestor de Quotas (Modo de Teste)",
+  "description": "Uma aplicação para automatizar o envio de emails de cobrança a sócios com quotas em atraso. Importe um ficheiro CSV, personalize o email com a ajuda da IA do Gemini e abra os emails no seu cliente de email para envio.",
   "requestFramePermissions": []
 }
