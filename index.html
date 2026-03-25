@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestor de Notificações - Quotas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+
+  <link rel="stylesheet" href="/index.css">
+    <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.22.0",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
+  <script type="module" crossorigin src="/Gestor-de-Quotas/assets/index-B5Qt9EMX.js"></script>
+</head>
+  <body class="bg-slate-900">
+    <div id="root"></div>
+    <script type="text/babel" data-type="module">
+import React, { useState, useMemo } from 'react';
+import ReactDOM from 'react-dom/client';
+import { GoogleGenAI, Type } from "@google/genai";
+
+// --- INLINED: constants.ts ---
+const INITIAL_SUBJECT = "Apoie a nossa causa: Quotas em Atraso - [Nome da Organização]";
+const INITIAL_BODY = `Caro(a) associado(a),
+
+Esperamos que esta mensagem o(a) encontre bem.
+
+O seu apoio como associado(a) da [Nome da Organização] é vital para continuarmos a nossa missão e os nossos projetos.
+
+Da nossa verificação administrativa, notámos que existe um valor pendente de [VALOR] referente às suas quotas. Ao manter as suas quotas em dia, está a contribuir diretamente para a sustentabilidade da nossa organização.
+
+Para sua conveniência, pode regularizar a sua situação através de transferência bancária para o seguinte IBAN:
+IBAN: [PT50 XXXX XXXX XXXX XXXX XXXX XXX]
+(Por favor, indique o seu nome ou número de associado na descrição da transferência)
+
+Se já efetuou o pagamento, por favor ignore esta notificação. Se tiver alguma questão, não hesite em contactar-nos.
+
+Com os melhores cumprimentos,
+A Direção - [Nome da Organização]
+
+[Morada da Organização]
+[Telefone da Organização]
+[Website / Redes Sociais da Organização]`;
+
+// --- INLINED: types.ts (as JS Object) ---
+const SendStatus = {
+  PENDING: 'PENDING',
+  SENDING: 'SENDING',
+  SUCCESS: 'SUCCESS',
+  FAILED: 'FAILED',
+};
+
+// --- INLINED: components/icons.tsx ---
+const IconUpload = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75M3 17.25V21h18v-3.75M3 12.75a9 9 0 0118 0v1.5a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 14.25v-1.5z" />
+  </svg>
+);
+
+const IconSparkles = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM18 13.5l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 18l-1.035.259a3.375 3.375 0 00-2.456 2.456L18 21.75l-.259-1.035a3.375 3.375 0 00-2.456-2.456L14.25 18l1.035.259a3.375 3.375 0 002.456-2.456L18 13.5z" />
+    </svg>
+);
+
+const IconSend = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+    </svg>
+);
+
+const IconHourglass = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.092 1.21-.138 2.43-.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7zM12 12h.008v.008H12V12z" />
+    </svg>
+);
+
+const IconCheckCircle = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
+const IconXCircle = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
+const IconExclamationTriangle = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+    </svg>
+);
+
+const IconArrowPath = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.664 0l3.18-3.182m-3.181-4.991l-3.182-3.182a8.25 8.25 0 00-11.664 0l-3.18 3.182" />
+    </svg>
+);
+
+const IconInformationCircle = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+    </svg>
+);
+
+
+// --- INLINED: services/geminiService.ts ---
+async function generateEmailSuggestion(apiKey) {
+  if (!apiKey) {
+    throw new Error("A chave de API do Gemini não foi fornecida.");
+  }
+  const ai = new GoogleGenAI({ apiKey });
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: "Atue como um especialista em comunicação para uma organização sem fins lucrativos. Crie um modelo de email profissional e empático para ser enviado a associados que estão com quotas em atraso. O email deve ser claro e educado, reforçando a importância do associado para a missão da organização. Inclua o placeholder [VALOR] onde o valor da dívida deve ser inserido. O corpo do email deve também incluir uma secção de pagamento com um IBAN simulado. O objetivo é motivar o pagamento de forma cordial. Forneça o assunto (subject) e o corpo (body) do email.",
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            subject: { type: Type.STRING, description: 'O assunto do email.' },
+            body: { type: Type.STRING, description: 'O corpo do email, contendo o placeholder [VALOR] e o IBAN simulado.' },
+          },
+          required: ["subject", "body"],
+        },
+      },
+    });
+    const jsonText = response.text.trim();
+    const parsed = JSON.parse(jsonText);
+    return { subject: parsed.subject, body: parsed.body };
+  } catch (error) {
+    console.error("Error generating email suggestion:", error);
+    throw new Error("Não foi possível gerar a sugestão de email. Verifique a sua chave de API e tente novamente.");
+  }
+}
+
+// --- INLINED: App.tsx (Main Application Component) ---
+const App = () => {
+  const [debtors, setDebtors] = useState([]);
+  const [file, setFile] = useState(null);
+  const [fileError, setFileError] = useState(null);
+  const [emailSubject, setEmailSubject] = useState(INITIAL_SUBJECT);
+  const [emailBody, setEmailBody] = useState(INITIAL_BODY);
+  const [bccEmail, setBccEmail] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [statuses, setStatuses] = useState([]);
+  const [apiKey, setApiKey] = useState('');
+  const [apiKeyInput, setApiKeyInput] = useState('');
+
+  const handleApiKeySubmit = (e) => {
+    e.preventDefault();
+    setApiKey(apiKeyInput);
+  };
+  const apiKeyMissing = !apiKey;
+
+  const handleFileChange = (event) => {
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile) {
+      setFileError(null);
+      setFile(selectedFile);
+      parseCSV(selectedFile);
+    }
+  };
+
+  const parseCSV = (fileToParse) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result;
+      const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
+      if (lines.length === 0) {
+        setFileError("O ficheiro CSV está vazio.");
+        return;
+      }
+      const newDebtors = [];
+      const newStatuses = [];
+      let hasError = false;
+      lines.forEach((line, index) => {
+        if (hasError) return;
+        if (index === 0 && line.toLowerCase().includes('email') && (line.toLowerCase().includes('valor') || line.toLowerCase().includes('amount'))) {
+          return; // Skip header
+        }
+        const [email, amountStr] = line.split(/[,;]/).map(s => s.trim());
+        const amount = parseFloat(amountStr);
+        if (email && /^\S+@\S+\.\S+$/.test(email) && !isNaN(amount)) {
+          const id = `${email}-${index}`;
+          newDebtors.push({ id, email, amount });
+          newStatuses.push({ id, status: SendStatus.PENDING });
+        } else {
+          setFileError(`Erro na linha ${index + 1}: formato inválido.`);
+          hasError = true;
+        }
+      });
+      if (hasError) {
+        setDebtors([]);
+        setStatuses([]);
+      } else {
+        setDebtors(newDebtors);
+        setStatuses(newStatuses);
+      }
+    };
+    reader.onerror = () => setFileError("Não foi possível ler o ficheiro.");
+    reader.readAsText(fileToParse);
+  };
+
+  const handleGenerateSuggestion = async () => {
+    setIsGenerating(true);
+    try {
+      const suggestion = await generateEmailSuggestion(apiKey);
+      setEmailSubject(suggestion.subject);
+      setEmailBody(suggestion.body);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Ocorreu um erro desconhecido.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSendSingleEmail = (debtor) => {
+    const confirmationMessage = `Tem a certeza de que pretende preparar o email para ${debtor.email}? Esta ação irá abrir o seu cliente de email.`;
+    if (window.confirm(confirmationMessage)) {
+      setStatuses(prev => prev.map(s => s.id === debtor.id ? { ...s, status: SendStatus.SENDING } : s));
+      const body = emailBody.replace(/\[VALOR\]/g, formatCurrency(debtor.amount));
+      let mailtoLink = `mailto:${debtor.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(body)}`;
+      
+      if (bccEmail && /^\S+@\S+\.\S+$/.test(bccEmail)) {
+        mailtoLink += `&bcc=${encodeURIComponent(bccEmail)}`;
+      }
+  
+      window.open(mailtoLink);
+      setTimeout(() => {
+        setStatuses(prev => prev.map(s => s.id === debtor.id ? { ...s, status: SendStatus.SUCCESS, message: 'Cliente de email aberto' } : s));
+      }, 500);
+    }
+  };
+
+  const handleResetStatuses = () => setStatuses(prev => prev.map(s => ({ ...s, status: SendStatus.PENDING, message: undefined })));
+
+  const formatCurrency = (amount) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(amount);
+
+  const StatusIndicator = ({ status }) => {
+    switch (status) {
+      case SendStatus.PENDING: return <div className="flex items-center justify-end text-slate-400"><IconHourglass className="w-4 h-4 mr-2" />Pendente</div>;
+      case SendStatus.SENDING: return <div className="flex items-center justify-end text-blue-400 animate-pulse"><IconSend className="w-4 h-4 mr-2" />A enviar...</div>;
+      case SendStatus.SUCCESS: return <div className="flex items-center justify-end text-green-400"><IconCheckCircle className="w-4 h-4 mr-2" />Enviado</div>;
+      case SendStatus.FAILED: return <div className="flex items-center justify-end text-red-400"><IconXCircle className="w-4 h-4 mr-2" />Falhou</div>;
+      default: return null;
+    }
+  };
+
+  const debtorStatuses = useMemo(() => debtors.map(d => ({ ...d, status: statuses.find(s => s.id === d.id)?.status ?? SendStatus.PENDING })), [debtors, statuses]);
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans p-4 sm:p-8">
+      <div className="max-w-7xl mx-auto">
+        <header className="text-center mb-10">
+          <div className="flex items-center justify-center gap-3 mb-1">
+            <img src="nodeflow_icon.svg" alt="Nodeflow" className="h-8 w-8" />
+            <h1 className="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600">Gestor de Notificações</h1>
+          </div>
+          <p className="mt-2 text-lg text-slate-400">Ferramenta para notificação de quotas e mensalidades</p>
+        </header>
+        
+        {apiKeyMissing && (
+          <div className="max-w-3xl mx-auto bg-yellow-900/50 border border-yellow-700 text-yellow-200 px-4 py-3 rounded-lg mb-8 flex items-start">
+            <IconExclamationTriangle className="w-6 h-6 mr-3 text-yellow-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-bold">Chave de API do Google Gemini Necessária</h3>
+              <p className="text-sm mt-1">Para utilizar a funcionalidade "Gerar Sugestão com IA", é necessária uma chave de API. Por segurança, as chaves são pessoais e não devem ser partilhadas. A aplicação não guarda a sua chave.</p>
+              <p className="text-sm mt-1">Cada utilizador deve obter a sua própria chave gratuita. <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline font-semibold">Obtenha uma chave no Google AI Studio aqui.</a></p>
+              <form onSubmit={handleApiKeySubmit} className="flex items-center gap-2 mt-3">
+                <input type="password" value={apiKeyInput} onChange={(e) => setApiKeyInput(e.target.value)} placeholder="Cole a sua chave de API aqui" className="flex-grow bg-slate-800 border-slate-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white text-sm px-2 py-1" />
+                <button type="submit" className="px-3 py-1 bg-blue-600 text-white text-sm font-semibold rounded-md hover:bg-blue-500 transition-colors">Guardar Chave</button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="flex flex-col gap-8">
+            <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 shadow-lg">
+              <h2 className="text-xl font-bold mb-4 flex items-center"><span className="text-blue-400 mr-3">1</span> Carregar Ficheiro CSV</h2>
+              <p className="text-sm text-slate-400 mb-4">Selecione um ficheiro .csv com duas colunas: email e valor (pode conter cabeçalho).</p>
+              <label htmlFor="file-upload" className="cursor-pointer group relative flex justify-center items-center w-full h-32 px-4 py-6 bg-slate-800 border-2 border-dashed border-slate-600 rounded-lg hover:border-blue-500 transition-colors">
+                <div className="text-center">
+                  <IconUpload className="mx-auto h-8 w-8 text-slate-500 group-hover:text-blue-500 transition-colors" />
+                  <p className="mt-2 text-sm text-slate-400">{file ? <span>{file.name}</span> : <span>Arraste e solte ou <span className="text-blue-400 font-semibold">clique para selecionar</span></span>}</p>
+                  {debtors.length > 0 && <p className="text-xs text-green-400 mt-1">{`${debtors.length} sócios carregados com sucesso.`}</p>}
+                  {fileError && <p className="text-xs text-red-400 mt-1">{fileError}</p>}
+                </div>
+                <input id="file-upload" name="file-upload" type="file" className="sr-only" accept=".csv,text/csv" onChange={handleFileChange} />
+              </label>
+            </div>
+            
+            <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 shadow-lg">
+              <h2 className="text-xl font-bold mb-4 flex items-center"><span className="text-blue-400 mr-3">2</span> Personalizar Mensagem</h2>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="subject" className="block text-sm font-medium text-slate-300 mb-1">Assunto</label>
+                  <input type="text" id="subject" value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className="w-full bg-slate-700 border-slate-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white" />
+                </div>
+                <div>
+                  <label htmlFor="bcc" className="block text-sm font-medium text-slate-300 mb-1">BCC (Cópia Oculta)</label>
+                  <input type="email" id="bcc" value={bccEmail} onChange={e => setBccEmail(e.target.value)} placeholder="geral@sua-organizacao.com" className="w-full bg-slate-700 border-slate-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white" />
+                  <p className="text-xs text-slate-400 mt-1">Opcional. Envia uma cópia oculta de cada email para este endereço para fins de registo.</p>
+                </div>
+                <div>
+                  <label htmlFor="body" className="block text-sm font-medium text-slate-300 mb-1">Corpo do Email</label>
+                  <textarea id="body" value={emailBody} onChange={e => setEmailBody(e.target.value)} rows={10} className="w-full bg-slate-700 border-slate-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white"></textarea>
+                  <p className="text-xs text-slate-400 mt-1">Use <code className="bg-slate-900 px-1 rounded">[VALOR]</code> para inserir a dívida automaticamente.</p>
+                </div>
+                <button onClick={handleGenerateSuggestion} disabled={isGenerating || apiKeyMissing} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-semibold rounded-lg shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity">
+                  {isGenerating ? (
+                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>A gerar...</>
+                  ) : (
+                    <><IconSparkles className="w-5 h-5" />Gerar Sugestão com IA</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold flex items-center"><span className="text-blue-400 mr-3">3</span> Enviar Notificações</h2>
+              {debtors.length > 0 && statuses.some(s => s.status !== SendStatus.PENDING) && (
+                <button onClick={handleResetStatuses} className="flex items-center gap-2 px-3 py-1 bg-slate-700 text-slate-300 text-sm font-semibold rounded-md hover:bg-slate-600 transition-colors">
+                  <IconArrowPath className="w-4 h-4" />
+                  Resetar Envios
+                </button>
+              )}
+            </div>
+            <div className="bg-slate-900/50 p-3 rounded-md text-sm text-slate-400 mb-4 border border-slate-700">
+              <p>Para garantir a máxima fiabilidade, cada email será aberto no seu cliente de email (Ex: Outlook). Só precisa de confirmar e enviar.</p>
+            </div>
+            <div className="bg-slate-900/50 p-3 rounded-md text-sm text-slate-400 mb-4 border border-slate-700 flex items-start gap-3">
+              <IconInformationCircle className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-slate-300">Usa um email online (Webmail)?</h4>
+                <p className="text-xs mt-1">Se o seu email (como o Corporatemail) abre no navegador (Firefox, Chrome), pode ser necessário configurar o navegador para que estes links abram corretamente. Procure nas definições do seu navegador por "mailto" ou "handlers".</p>
+              </div>
+            </div>
+            <div className="flex-grow h-96 overflow-y-auto pr-2">
+              {debtors.length === 0 ? (
+                <div className="text-center py-16 text-slate-500">
+                  <p>A lista de sócios com quotas em atraso aparecerá aqui.</p>
+                </div>
+              ) : (
+                <ul className="space-y-3">
+                  {debtorStatuses.map(debtor => (
+                    <li key={debtor.id} className="bg-slate-800 p-3 rounded-lg flex justify-between items-center transition-all duration-300">
+                      <div>
+                        <p className="font-medium text-slate-200">{debtor.email}</p>
+                        <p className="text-sm text-cyan-300 font-mono">{formatCurrency(debtor.amount)}</p>
+                      </div>
+                      <div className="text-sm w-32 text-right">
+                        {(statuses.find(s => s.id === debtor.id)?.status ?? SendStatus.PENDING) === SendStatus.PENDING ? (
+                          <button onClick={() => handleSendSingleEmail(debtor)} className="flex items-center justify-center gap-2 w-full px-3 py-1 bg-green-600 text-white font-semibold rounded-md shadow-sm hover:bg-green-500 disabled:opacity-50 transition-colors">
+                            <IconSend className="w-4 h-4" />
+                            Enviar
+                          </button>
+                        ) : (
+                          <StatusIndicator status={debtor.status} />
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// --- INLINED: index.tsx (Render logic) ---
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error("Could not find root element to mount to");
+}
+const root = ReactDOM.createRoot(rootElement);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+    </script>
+</body>
+</html>
